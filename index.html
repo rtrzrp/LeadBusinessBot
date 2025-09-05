@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexaraBot Voice Transcriber</title>
+    <link rel="stylesheet" href="assets/css/main.css">
+    <link rel="stylesheet" href="assets/css/animations.css">
+    <link rel="stylesheet" href="assets/css/themes.css">
+</head>
+<body class="dark-theme">
+
+    <div class="container">
+        <header>
+            <h1>NexaraBot Voice Transcriber</h1>
+            <button class="theme-toggle">🌙</button>
+        </header>
+
+        <div class="settings-panel collapsible closed">
+            <h3 class="collapsible-header">⚙️ Настройки <span class="toggle-arrow">▼</span></h3>
+            <div class="collapsible-content">
+                <div class="config-group">
+                    <label>Nexara API Key</label>
+                    <input type="password" id="nexara-api-key" placeholder="Введите ваш API ключ">
+                    
+                    <label>Base URL</label> 
+                    <input type="url" id="base-url" value="https://api.nexara.ru/api/v1">
+                </div>
+
+                <div class="user-group">
+                    <label>Ваше имя</label>
+                    <input type="text" id="user-name" placeholder="Имя для идентификации">
+                    
+                    <label>Telegram ID</label>
+                    <input type="text" id="telegram-id" placeholder="Ваш ID в Telegram">
+                </div>
+
+                <div class="webhook-group">
+                    <label>Webhook URL</label>
+                    <input type="url" id="webhook-url" placeholder="https://your-n8n-webhook.com/webhook">
+                </div>
+
+                <div class="features-group">
+                    <label class="checkbox">
+                        <input type="checkbox" id="diarization">
+                        <span>Диаризация (определение спикеров)</span>
+                    </label>
+                </div>
+
+                <button id="save-settings" class="save-btn">💾 Сохранить настройки</button>
+            </div>
+        </div>
+
+        <div class="main-recorder">
+            <div class="device-selector">
+                <label>🎤 Микрофон:</label>
+                <div class="mic-status-container">
+                    <span id="mic-status-dot" class="status-dot"></span>
+                    <select id="audio-devices" disabled>
+                        <option>Загрузка...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="recording-center">
+                <div class="mic-container">
+                    <div class="wave-rings">
+                        <div class="wave-ring ring-1"></div>
+                        <div class="wave-ring ring-2"></div> 
+                        <div class="wave-ring ring-3"></div>
+                    </div>
+                    <button id="main-mic-btn" class="mic-button" disabled>
+                        <svg class="mic-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="timer-display">
+                    <span id="elapsed-time">00:00</span>
+                    <div id="status-text" class="status-text">Инициализация...</div>
+                </div>
+
+                <div class="control-buttons">
+                    <button id="pause-btn" class="control-btn" disabled>⏸️ Пауза</button>
+                    <button id="resume-btn" class="control-btn" disabled>▶️ Продолжить</button>
+                    <button id="stop-btn" class="control-btn" disabled>⏹️ Стоп</button>
+                </div>
+            </div>
+
+            <div class="file-upload">
+                <input type="file" id="audio-file" accept="audio/*,video/*" style="display:none;">
+                <label for="audio-file" class="upload-btn">📎 Прикрепить файл</label>
+            </div>
+        </div>
+
+        <div class="activity-log">
+            <h3>📋 Лог активности</h3>
+            <div class="log-container" id="log-container">
+                <!-- Записи лога -->
+            </div>
+            <button id="clear-log" class="clear-log">🧹 Очистить лог</button>
+        </div>
+
+    </div>
+
+    <!-- Только один основной скрипт -->
+    <script src="assets/js/app.js"></script>
+</body>
+</html>

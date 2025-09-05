@@ -1,0 +1,682 @@
+# Quickstart
+
+> Learn how to turn your audio into text. Hint: you can copy the entire docs page into ChatGPT by pressing the button above.
+
+The Audio API provides a single speech to text endpoint:
+
+* `transcriptions`
+
+File uploads are limited to 1 GB (if you need larger file support, you can write to <a href="https://t.me/RND_RandoM">Support</a>), and the following input file types are supported: `mp3`, `wav`, `mp3`, `m4a`, `flac`, `ogg`, `opus`, `mp4`, `mov`, `avi`, and `mkv`. Furthermore, the API supports sending direct links to the files and neural speaker diarization.
+
+## Transcriptions
+
+The transcriptions API takes as input the audio (or video) file you want to transcribe (or the link to that file) and the desired output file format for the transcription of the audio. The model supports the following output formats (`json`, `text`, `srt`, `verbose_json`, `vtt`). Read more abouit the output formats on the [Response Formats](/en/response-formats) page.
+
+<CodeGroup>
+  ```python Python requests
+  import requests
+
+  url = "https://api.nexara.ru/api/v1/audio/transcriptions"
+  api_key = "NEXARA_API_KEY"  # Replace with your full API key
+
+  headers = {
+      "Authorization": f"Bearer {api_key}",
+  }
+
+  file_path = "audio/example.mp3"
+
+  with open(file_path, "rb") as audio_file:
+      files = {
+          "file": (file_path, audio_file, "audio/mp3"),  # Change MIME type if needed
+      }
+
+      # Or you can pass the "url" parameter and send the direct link to the audio file.
+      data = {
+          "response_format": "json",
+          # "task": "diarize" # if you want to perform speaker diarization
+          # By default, the task is set to "transcribe"
+      }
+
+      response = requests.post(url, headers=headers, files=files, data=data)
+
+      transcription = response.json()
+      print(transcription)
+  ```
+
+  ```python OpenAI Python
+  # Warning: OpenAI SDK does not support diarization.
+
+  from openai import OpenAI
+
+  client = OpenAI(
+      base_url="https://api.nexara.ru/api/v1",
+      api_key="NEXARA_API_KEY", # Replace with your full API key
+  )
+
+  with open("audio/example.mp3", "rb") as audio_file:
+      transcription = client.audio.transcriptions.create(
+          model="whisper-1",
+          file=audio_file
+      )
+
+  print(transcription)
+  ```
+
+  ```javascript JS
+  async function transcribeAudio(audioFile, apiKey) {
+    const url = "https://api.nexara.ru/api/v1/audio/transcriptions";
+
+    // Create FormData object to hold the file
+    const formData = new FormData();
+    formData.append("file", audioFile);
+
+    try {
+      // Make the API request
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: formData,
+      });
+
+      // Parse and return the JSON response
+      const transcription = await response.json();
+      return transcription;
+    } catch (error) {
+      console.error("Transcription error:", error);
+      throw error;
+    }
+  }
+
+  // Example usage:
+  document
+    .getElementById("fileInput")
+    .addEventListener("change", async (event) => {
+      const apiKey = "NEXARA_API_KEY"; // Replace with your actual API key
+      const audioFile = event.target.files[0];
+
+      try {
+        const result = await transcribeAudio(audioFile, apiKey);
+        console.log(result);
+      } catch (error) {
+        console.error("Error processing audio:", error);
+      }
+    });
+  ```
+
+  ```curl cURL
+  curl --request POST \
+    --url https://api.nexara.ru/api/v1/audio/transcriptions \
+    --header 'Authorization: Bearer NEXARA_API_KEYm' \
+    --header 'Content-Type: multipart/form-data' \
+    --form response_format="verbose_json" \
+    --form file="@example.mp3"
+  ```
+</CodeGroup>
+
+By default, the response type will be json:
+
+```
+{
+  "text": "Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal.
+...
+}
+```
+
+## Supported Languages
+
+We currently support the following languages through the `/transcriptions` endpoint:
+
+Afrikaans, Arabic, Armenian, Azerbaijani, Belarusian, Bosnian, Bulgarian, Catalan, Chinese, Croatian, Czech, Danish, Dutch, English, Estonian, Finnish, French, Galician, German, Greek, Hebrew, Hindi, Hungarian, Icelandic, Indonesian, Italian, Japanese, Kannada, Kazakh, Korean, Latvian, Lithuanian, Macedonian, Malay, Marathi, Maori, Nepali, Norwegian, Persian, Polish, Portuguese, Romanian, Russian, Serbian, Slovak, Slovenian, Spanish, Swahili, Swedish, Tagalog, Tamil, Thai, Turkish, Ukrainian, Urdu, Vietnamese, and Welsh.
+
+While the model was trained on 98 languages, the list above only contains languages that exceeded 50% word error rate (WER). View the entire language list and their codes in the ISO-639-1 format on the [Supported Languages](/en/languages) page.
+
+## Timestamp Granularities
+
+To get detailed timing information alongside your transcription, you can use the `timestamp_granularities[]` parameter. This feature requires setting the `response_format` to `verbose_json`. For more details, visit the [API Documentation](/en/api-reference/endpoint/transcription#body-timestamp-granularities).
+
+Currently, two levels of granularity are available:
+
+1. **`segment` Granularity:**
+
+   * **How to request:** Include `timestamp_granularities[]=segment` in your API request (along with `response_format=verbose_json`).
+   * **What it returns:** The `verbose_json` response will contain a `segments` array. Each object in this array represents a larger chunk or segment of the transcribed audio (30 seconds in length). Each segment object includes its `start` time, `end` time, and the transcribed `text` for that specific chunk.
+
+2. **`word` Granularity:**
+   * **How to request:** Include `timestamp_granularities[]=word` in your API request (along with `response_format=verbose_json`).
+   * **What it returns:** This provides the most detailed timing information. The `verbose_json` response will contain:
+     * A `words` array: Each object in this array details an individual recognized word, including the `word` itself, its precise `start` time, and its `end` time in seconds.
+     * A `segments` array: Even when requesting `word` granularity, the response *still includes* the `segments` array described above. This gives you both fine-grained word timing and the broader segment structure in a single response.
+
+**In Summary:**
+
+* Use `segment` if you only need timing for larger chunks of speech.
+* Use `word` if you need precise start/end times for individual words. Requesting `word` granularity conveniently provides both the `words` and `segments` arrays.
+* Remember, both options require `response_format=verbose_json`.
+
+<CodeGroup>
+  ```python Python requests
+  import requests
+
+  url = "https://api.nexara.ru/api/v1/audio/transcriptions"
+  api_key = "NEXARA_API_KEY"  # Replace with your full API key
+
+  headers = {
+      "Authorization": f"Bearer {api_key}",
+  }
+
+  file_path = "audio/example.mp3"
+
+  with open(file_path, "rb") as audio_file:
+      files = {
+          "file": (file_path, audio_file, "audio/mp3"),  # Change MIME type if needed
+      }
+      data = {
+          "response_format": "verbose_json",
+          "timestamp_granularities[]": "word", # Returns both word timestamps and segment timestamps.
+      }
+
+      response = requests.post(url, headers=headers, files=files, data=data)
+
+      transcription = response.json()
+      print(transcription)
+  ```
+
+  ```python OpenAI Python
+  # Warning: OpenAI SDK will not support future features of Nexara.
+  # Use with caution.
+  from openai import OpenAI
+
+  client = OpenAI(
+      base_url="https://api.nexara.ru/api/v1",
+      api_key="NEXARA_API_KEY", # Replace with your full API key
+  )
+
+  with open("audio/example.mp3", "rb") as audio_file:
+      transcription = client.audio.transcriptions.create(
+          model="whisper-1",
+          file=audio_file,
+          response_format="verbose_json",
+          timestamp_granularities=["word"]
+      )
+
+  print(transcription)
+  ```
+
+  ```javascript JS
+  async function transcribeAudio(audioFile, apiKey) {
+    const url = "https://api.nexara.ru/api/v1/audio/transcriptions";
+
+    // Create FormData object to hold the file
+    const formData = new FormData();
+    formData.append("file", audioFile);
+
+    formData.append("response_format", "verbose_json");
+    formData.append("timestamp_granularities[]", "word"); // Add the timestamp granularity
+
+    try {
+      // Make the API request
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: formData,
+      });
+
+      // Parse and return the JSON response
+      const transcription = await response.json();
+      return transcription;
+    } catch (error) {
+      console.error("Transcription error:", error);
+      throw error;
+    }
+  }
+
+  // Example usage:
+  document
+    .getElementById("fileInput")
+    .addEventListener("change", async (event) => {
+      const apiKey = "NEXARA_API_KEY"; // Replace with your actual API key
+      const audioFile = event.target.files[0];
+
+      try {
+        const result = await transcribeAudio(audioFile, apiKey);
+        console.log(result);
+      } catch (error) {
+        console.error("Error processing audio:", error);
+      }
+    });
+  ```
+
+  ```bash cURL
+  curl --request POST \
+    --url https://api.nexara.ru/api/v1/audio/transcriptions \
+    --header 'Authorization: Bearer NEXARA_API_KEY' \
+    --header 'Content-Type: multipart/form-data' \
+    --form response_format="verbose_json" \
+    --form 'timestamp_granularities[]="word"' \
+    --form file="@example.mp3"
+  ```
+</CodeGroup>
+
+Here's an example of an output:
+
+```json [expandable]
+{
+  "duration": 109.69609977324264,
+  "language": "en",
+  "task": "transcribe",
+  "text": "Four score and seven years ago, our fathers brought forth on this continent a new nation, conceived in liberty and dedicated to the proposition that all men are created equal. ... ",
+  "words": [
+    {
+      "end": 0.62,
+      "prob": 0.07,
+      "start": 0,
+      "word": "Four"
+    },
+    {
+      "end": 1.12,
+      "prob": 0.21,
+      "start": 0.62,
+      "word": "score"
+    },
+    {
+      "end": 1.44,
+      "prob": 0.84,
+      "start": 1.12,
+      "word": "and"
+    },
+    {
+      "end": 1.82,
+      "prob": 0.95,
+      "start": 1.44,
+      "word": "seven"
+    },
+    {
+      "end": 2.18,
+      "prob": 0.99,
+      "start": 1.82,
+      "word": "years"
+    },
+    {
+      "end": 3.54,
+      "prob": 0.68,
+      "start": 2.18,
+      "word": "ago,"
+    },
+    {
+      "end": 3.84,
+      "prob": 0.94,
+      "start": 3.54,
+      "word": "our"
+    },
+    {
+      "end": 4.16,
+      "prob": 0.46,
+      "start": 3.84,
+      "word": "fathers"
+    },
+    {
+      "end": 4.52,
+      "prob": 0.97,
+      "start": 4.16,
+      "word": "brought"
+    },
+    {
+      "end": 4.94,
+      "prob": 0.97,
+      "start": 4.52,
+      "word": "forth"
+    },
+    {
+      "end": 5.16,
+      "prob": 0.92,
+      "start": 4.94,
+      "word": "on"
+    },
+    {
+      "end": 5.28,
+      "prob": 0.77,
+      "start": 5.16,
+      "word": "this"
+    },
+    {
+      "end": 5.64,
+      "prob": 0.93,
+      "start": 5.28,
+      "word": "continent"
+    },
+    {
+      "end": 6.12,
+      "prob": 0.82,
+      "start": 5.64,
+      "word": "a"
+    },
+    {
+      "end": 6.18,
+      "prob": 0.98,
+      "start": 6.12,
+      "word": "new"
+    },
+    {
+      "end": 7.94,
+      "prob": 0.75,
+      "start": 6.18,
+      "word": "nation,"
+    },
+    {
+      "end": 8.16,
+      "prob": 0.98,
+      "start": 7.94,
+      "word": "conceived"
+    },
+    {
+      "end": 8.46,
+      "prob": 0.95,
+      "start": 8.16,
+      "word": "in"
+    },
+    {
+      "end": 8.8,
+      "prob": 0.98,
+      "start": 8.46,
+      "word": "liberty"
+    },
+    {
+      "end": 9.64,
+      "prob": 0.43,
+      "start": 8.8,
+      "word": "and"
+    },
+    {
+      "end": 10.02,
+      "prob": 1,
+      "start": 9.64,
+      "word": "dedicated"
+    },
+    {
+      "end": 10.64,
+      "prob": 0.96,
+      "start": 10.02,
+      "word": "to"
+    },
+    {
+      "end": 10.86,
+      "prob": 1,
+      "start": 10.64,
+      "word": "the"
+    },
+    {
+      "end": 11.32,
+      "prob": 0.98,
+      "start": 10.86,
+      "word": "proposition"
+    },
+    {
+      "end": 11.78,
+      "prob": 1,
+      "start": 11.32,
+      "word": "that"
+    },
+    {
+      "end": 11.88,
+      "prob": 0.91,
+      "start": 11.78,
+      "word": "all"
+    },
+    {
+      "end": 12.1,
+      "prob": 0.99,
+      "start": 11.88,
+      "word": "men"
+    },
+    {
+      "end": 12.4,
+      "prob": 0.98,
+      "start": 12.1,
+      "word": "are"
+    },
+    {
+      "end": 12.68,
+      "prob": 0.98,
+      "start": 12.4,
+      "word": "created"
+    },
+    {
+      "end": 14.68,
+      "prob": 0.95,
+      "start": 12.68,
+      "word": "equal."
+    }
+  ],
+  "segments": [
+    {
+      "avg_logprob": -1,
+      "compression_ratio": 2.4,
+      "end": 29,
+      "id": 0,
+      "no_speech_prob": 0.5,
+      "seek": 0,
+      "start": 0,
+      "temperature": 1,
+      "text": "Four score and seven years ago, our fathers brought forth on this continent a new nation, conceived in liberty and dedicated to the proposition that all men are created equal. ...",
+      "tokens": [
+        7451, 6175, 293, 3407, 924, 2057, 11, 527, 23450, 3038, 5220, 322, 341,
+        18932, 257, 777, 4790, 11, 34898, 294, 22849, 293, 8374, 281, 264,
+        24830, 300, 439, 1706, 366, 2942, 2681, 13, 823, 321, 366, 8237
+      ]
+    }
+  ]
+}
+```
+
+## Response Formats
+
+The Nexara Transcription API allows you to specify the format in which you want to receive the transcription results. By using the `response_format` parameter in your request, you can tailor the output to best suit your needs, whether you require simple text, structured data for programmatic use, or ready-to-use subtitle files. Refer to the [API Documentation](/en/api-reference/endpoint/transcription) for examples.
+
+The API supports the following output formats:
+
+* **`json`:** Returns a standard JSON object containing the transcribed text.
+* **`text`:** Returns the transcription as a single plain text string.
+* **`verbose_json`:** Returns a detailed JSON object containing the text, language, duration, and potentially segment and word-level timestamps (if requested via `timestamp_granularities[]`).
+* **`srt`:** Returns the transcription formatted as an SRT subtitle file.
+* **`vtt`:** Returns the transcription formatted as a WebVTT subtitle file.
+
+<Warning>When getting an answer in the subtitle format (`srt` or `vtt`), do **not** use `response.text` if using python's `request` library. Use `response.json` instead.</Warning>
+
+## Speaker Diarization
+
+Nexara API supports neural speaker diarization. This feature identifies different speakers in an audio file and attributes transcribed segments to each one. To get started, simply set the `task` parameter to `"diarize"` in your API request.
+
+Furthermore, you can pass the `num_speakers` parameter to specify the number of speakers you expect in the audio file. Note that this parameter does not guarantee the correct number of speakers but can guide the model.
+
+The model also supports three diarization settings:
+
+* `general`: Default setting for general use.
+* `meeting`: Optimized for meetings.
+* `telephonic`: Optimized for telephonic conversations.
+
+Note that performing speaker diarization is more computationally intensive than just transcribing an audio file, so the delay for the response will be longer. Also, note that diarization costs twice as much as a regular transcription.
+
+<CodeGroup>
+  ```python Python requests
+  import requests
+
+  url = "https://api.nexara.ru/api/v1/audio/transcriptions"
+  api_key = "NEXARA_API_KEY"  # Replace with your full API key
+
+  headers = {
+      "Authorization": f"Bearer {api_key}",
+  }
+
+  file_path = "audio/example.mp3"
+
+  with open(file_path, "rb") as audio_file:
+      files = {
+          "file": (file_path, audio_file, "audio/mp3"),  # Change MIME type if needed
+      }
+
+      # Or you can pass the "url" parameter and send the direct link to the audio file.
+      data = {
+          "task": "diarize",
+          # "num_speakers": 2,
+          # "diarization_setting": "telephonic"
+      }
+
+      response = requests.post(url, headers=headers, files=files, data=data)
+
+      transcription = response.json()
+      print(transcription)
+  ```
+
+  ```curl cURL
+  curl --request POST \
+    --url https://api.nexara.ru/api/v1/audio/transcriptions \
+    --header 'Authorization: Bearer NEXARA_API_KEY' \
+    --header 'Content-Type: multipart/form-data' \
+    --form task="diarize" \
+    --form file="@example.mp3"
+  ```
+</CodeGroup>
+
+When you request diarization, the API will always return a JSON response. This response includes a `segments` array. Each object within this array will have a speaker field (e.g., "speaker\_0", "speaker\_1") identifying who spoke during that specific audio segment, along with their `start` time, `end` time, and the `text` they spoke.
+
+The output will always be in the following format, no matter the `response_format` setting:
+
+```
+{
+    "task": "diarize",
+    "language": "en",
+    "duration": 9.12,
+    "text": "The beach was a popular spot on a hot summer day. People were swimming in the ocean, building sandcastles, and playing beach volleyball.",
+    "segments": [
+        {
+            "speaker": "speaker_0",
+            "start": 0.00,
+            "end": 5.00,
+            "text": "The beach was a popular spot on a hot summer day."
+        },
+        {
+            "speaker": "speaker_1",
+            "start": 5.00,
+            "end": 9.12,
+            "text": "People were swimming in the ocean, building sandcastles, and playing beach volleyball."
+        }
+    ]
+}
+```
+
+<Info>
+  Note that Nexara doesn't support channel diarization. This means that the API
+  will ignore channel information and identify speakers based on the audio
+  content alone.
+</Info>
+
+# Supported MIME Types
+
+> Learn which MIME types are supported by the Nexara API.
+
+The Nexara Speech-to-Text API, particularly the `/audio/transcriptions` endpoint, accepts file uploads with various MIME types representing common audio and video formats.
+
+When sending a file via `multipart/form-data`, ensure the `Content-Type` associated with the file part correctly identifies the format.
+
+Below is a list of the MIME types currently supported by the API and the common formats they represent:
+
+**Audio Formats:**
+
+* **WAV:**
+  * `audio/wav`
+  * `audio/x-wav`
+  * `audio/wave`
+* **MP3:**
+  * `audio/mp3`
+  * `audio/mpeg`
+  * `audio/mpg`
+  * `audio/x-mpeg`
+* **M4A / AAC:**
+  * `audio/x-m4a`
+  * `audio/mp4`
+  * `audio/mp4a-latm`
+  * `audio/mpeg4`
+  * `audio/aac`
+* **FLAC:**
+  * `audio/flac`
+* **OGG (Vorbis/Opus):**
+  * `audio/ogg`
+  * `audio/oga`
+* **Opus:**
+  * `audio/opus`
+* **AIFF:**
+  * `audio/aiff`
+  * `audio/x-aiff`
+* **ASF:**
+  * `audio/asf`
+
+**Video Formats (Audio will be extracted):**
+
+* **MP4:**
+  * `video/mp4`
+* **MOV:**
+  * `video/quicktime`
+* **AVI:**
+  * `video/x-msvideo`
+* **MKV:**
+  * `video/x-matroska`
+
+**Note:** If there is a particular MIME type you wish would be supported, please write to the <a href="https://t.me/RND_RandoM">Support</a> team.
+
+
+# Supported MIME Types
+
+> Learn which MIME types are supported by the Nexara API.
+
+The Nexara Speech-to-Text API, particularly the `/audio/transcriptions` endpoint, accepts file uploads with various MIME types representing common audio and video formats.
+
+When sending a file via `multipart/form-data`, ensure the `Content-Type` associated with the file part correctly identifies the format.
+
+Below is a list of the MIME types currently supported by the API and the common formats they represent:
+
+**Audio Formats:**
+
+* **WAV:**
+  * `audio/wav`
+  * `audio/x-wav`
+  * `audio/wave`
+* **MP3:**
+  * `audio/mp3`
+  * `audio/mpeg`
+  * `audio/mpg`
+  * `audio/x-mpeg`
+* **M4A / AAC:**
+  * `audio/x-m4a`
+  * `audio/mp4`
+  * `audio/mp4a-latm`
+  * `audio/mpeg4`
+  * `audio/aac`
+* **FLAC:**
+  * `audio/flac`
+* **OGG (Vorbis/Opus):**
+  * `audio/ogg`
+  * `audio/oga`
+* **Opus:**
+  * `audio/opus`
+* **AIFF:**
+  * `audio/aiff`
+  * `audio/x-aiff`
+* **ASF:**
+  * `audio/asf`
+
+**Video Formats (Audio will be extracted):**
+
+* **MP4:**
+  * `video/mp4`
+* **MOV:**
+  * `video/quicktime`
+* **AVI:**
+  * `video/x-msvideo`
+* **MKV:**
+  * `video/x-matroska`
+
+**Note:** If there is a particular MIME type you wish would be supported, please write to the <a href="https://t.me/RND_RandoM">Support</a> team.
