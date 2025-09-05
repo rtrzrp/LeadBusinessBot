@@ -55,6 +55,7 @@ app.post('/api/transcribe', upload.single('file'), async (req, res) => {
         // Forward other form fields from the client
         if (req.body.response_format) formData.append('response_format', req.body.response_format);
         if (req.body.task) formData.append('task', req.body.task);
+        if (req.body.language) formData.append('language', req.body.language);
 
         console.log('[SERVER] Forwarding to Nexara API...');
 

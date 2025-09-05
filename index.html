@@ -12,7 +12,7 @@
 
     <div class="container">
         <header>
-            <h1>NexaraBot Voice Transcriber</h1>
+            <h1>LeadBusiness Voice Transcriber</h1>
             <button class="theme-toggle">🌙</button>
         </header>
 
@@ -36,14 +36,31 @@
                 </div>
 
                 <div class="webhook-group">
-                    <label>Webhook URL</label>
-                    <input type="url" id="webhook-url" placeholder="https://your-n8n-webhook.com/webhook">
+                    <label>Webhook пресеты</label>
+                    <div id="preset-list" class="preset-list">
+                        <!-- Пресеты будут добавляться сюда динамически -->
+                    </div>
+                    <button id="add-preset" class="add-btn">+ Добавить пресет</button>
+                    
+                    <label>Активный webhook</label>
+                    <select id="active-webhook"></select>
                 </div>
 
                 <div class="features-group">
                     <label class="checkbox">
                         <input type="checkbox" id="diarization">
                         <span>Диаризация (определение спикеров)</span>
+                    </label>
+                    <label>
+                        <span>Язык распознавания</span>
+                        <select id="language-select">
+                            <option value="auto">Автоопределение</option>
+                            <option value="ru">Русский</option>
+                            <option value="en">Английский</option>
+                            <option value="de">Немецкий</option>
+                            <option value="es">Испанский</option>
+                            <option value="fr">Французский</option>
+                        </select>
                     </label>
                 </div>
 

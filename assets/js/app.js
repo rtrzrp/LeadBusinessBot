@@ -318,8 +318,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         baseUrl: 'https://api.nexara.ru/api/v1',
         userName: '',
         telegramId: '',
-        webhookUrl: '',
-        diarization: false
+        diarization: false,
+        language: 'auto', // Новое поле для языка
+        webhooks: [{ name: 'Default', url: '' }],
+        activeWebhookIndex: 0
     };
 
     // Загрузка настроек
@@ -327,30 +329,51 @@ document.addEventListener('DOMContentLoaded', async () => {
         const saved = localStorage.getItem('nexaraSettings');
         if (saved) {
             try {
-                settings = { ...settings, ...JSON.parse(saved) };
-                document.getElementById('nexara-api-key').value = settings.apiKey;
-                document.getElementById('base-url').value = settings.baseUrl;
-                document.getElementById('user-name').value = settings.userName;
-                document.getElementById('telegram-id').value = settings.telegramId;
-                document.getElementById('webhook-url').value = settings.webhookUrl;
-                document.getElementById('diarization').checked = settings.diarization;
+                const savedSettings = JSON.parse(saved);
+                // Ensure webhooks is an array
+                if (!Array.isArray(savedSettings.webhooks) || savedSettings.webhooks.length === 0) {
+                    savedSettings.webhooks = [{ name: 'Default', url: '' }];
+                }
+                settings = { ...settings, ...savedSettings };
             } catch (e) {
                 log('Ошибка загрузки настроек', 'warning');
             }
         }
+        renderSettings();
+    }
+
+    // Рендер UI настроек
+    function renderSettings() {
+        document.getElementById('nexara-api-key').value = settings.apiKey;
+        document.getElementById('base-url').value = settings.baseUrl;
+        document.getElementById('user-name').value = settings.userName;
+        document.getElementById('telegram-id').value = settings.telegramId;
+        document.getElementById('diarization').checked = settings.diarization;
+        document.getElementById('language-select').value = settings.language;
+        renderPresets();
     }
 
     // Сохранение настроек
     function saveSettings() {
-        settings.apiKey = document.getElementById('nexara-api-key').value;
-        settings.baseUrl = document.getElementById('base-url').value;
-        settings.userName = document.getElementById('user-name').value;
-        settings.telegramId = document.getElementById('telegram-id').value;
-        settings.webhookUrl = document.getElementById('webhook-url').value;
+        settings.apiKey = document.getElementById('nexara-api-key').value.trim();
+        settings.baseUrl = document.getElementById('base-url').value.trim();
+        settings.userName = document.getElementById('user-name').value.trim();
+        settings.telegramId = document.getElementById('telegram-id').value.trim();
         settings.diarization = document.getElementById('diarization').checked;
+        settings.language = document.getElementById('language-select').value;
         
+        const presetList = document.getElementById('preset-list');
+        settings.webhooks = Array.from(presetList.children).map(item => ({
+            name: item.querySelector('.preset-name').value.trim(),
+            url: item.querySelector('.preset-url').value.trim()
+        })).filter(p => p.name && p.url);
+
+        const activeWebhookSelect = document.getElementById('active-webhook');
+        settings.activeWebhookIndex = activeWebhookSelect.selectedIndex;
+
         localStorage.setItem('nexaraSettings', JSON.stringify(settings));
         log('Настройки сохранены!', 'success');
+        renderPresets(); // Re-render to ensure consistency
     }
 
     // Сворачивание настроек
@@ -382,6 +405,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (settings.diarization) {
                 formData.append('task', 'diarize');
             }
+            // Добавляем язык, если он не "auto"
+            if (settings.language && settings.language !== 'auto') {
+                formData.append('language', settings.language);
+                log(`🗣️ Язык принудительно установлен: ${settings.language}`, 'info');
+            }
 
             const response = await fetch(url, {
                 method: "POST",
@@ -408,10 +436,56 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // Рендер пресетов
+    function renderPresets() {
+        const presetList = document.getElementById('preset-list');
+        const activeWebhookSelect = document.getElementById('active-webhook');
+        presetList.innerHTML = '';
+        activeWebhookSelect.innerHTML = '';
+
+        if (settings.webhooks.length === 0) {
+            // Add a default empty preset if the list is empty
+            settings.webhooks.push({ name: '', url: '' });
+        }
+
+        settings.webhooks.forEach((preset, index) => {
+            addPresetToDOM(preset.name, preset.url);
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = preset.name || `Пресет ${index + 1}`;
+            activeWebhookSelect.appendChild(option);
+        });
+
+        if (settings.activeWebhookIndex >= 0 && settings.activeWebhookIndex < settings.webhooks.length) {
+            activeWebhookSelect.selectedIndex = settings.activeWebhookIndex;
+        }
+    }
+
+    // Добавление пресета в DOM
+    function addPresetToDOM(name = '', url = '') {
+        const presetList = document.getElementById('preset-list');
+        const item = document.createElement('div');
+        item.className = 'preset-item';
+        item.innerHTML = `
+            <input type="text" class="preset-name" placeholder="Название" value="${name}">
+            <input type="url" class="preset-url" placeholder="URL" value="${url}">
+            <button class="delete-btn">🗑️</button>
+        `;
+        item.querySelector('.delete-btn').addEventListener('click', () => {
+            item.remove();
+            // User must click save to persist deletion
+        });
+        presetList.appendChild(item);
+    }
+    
+    document.getElementById('add-preset').addEventListener('click', () => addPresetToDOM());
+
+
     // Отправка в webhook через НАШ ОБЪЕДИНЕННЫЙ СЕРВЕР
     async function sendToWebhook(text) {
-        if (!settings.webhookUrl) {
-            log('Webhook URL не указан', 'warning');
+        const activePreset = settings.webhooks[settings.activeWebhookIndex];
+        if (!activePreset || !activePreset.url) {
+            log('Активный Webhook не настроен', 'warning');
             return;
         }
         if (!text) {
@@ -419,13 +493,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const url = "/api/webhook"; // Новый относительный URL
+        const url = "/api/webhook";
         
         try {
-            log('🔄 Отправка webhook через наш сервер...');
+            log(`🔄 Отправка webhook через наш сервер на пресет "${activePreset.name}"...`);
             
             const serverPayload = {
-                webhookUrl: settings.webhookUrl,
+                webhookUrl: activePreset.url,
                 payload: {
                     name: settings.userName || 'Unknown',
                     date: new Date().toISOString(),
