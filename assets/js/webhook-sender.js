@@ -1,6 +1,6 @@
 const WebhookSender = (() => {
 
-    async function send(text) {
+    async function send(transcriptionResult) {
         const activeWebhook = SettingsManager.getActiveWebhook();
         const settings = SettingsManager.getSettings();
 
@@ -10,8 +10,8 @@ const WebhookSender = (() => {
             return false;
         }
 
-        if (!text || !text.trim()) {
-            logActivity('⚠️ Нет текста для отправки в webhook', 'warning');
+        if (!transcriptionResult) {
+            logActivity('⚠️ Нет данных для отправки в webhook', 'warning');
             return false;
         }
 
@@ -20,7 +20,8 @@ const WebhookSender = (() => {
             name: settings.userName || 'Неизвестный пользователь',
             date: new Date().toISOString(),
             tg_id: settings.telegramId || '',
-            text: text.trim()
+            text: transcriptionResult.formattedText || transcriptionResult.text || '',
+            transcription_data: transcriptionResult.rawResponse || null
         };
 
         logActivity(`🔄 Отправка в webhook: ${activeWebhook.name}...`);
@@ -58,10 +59,18 @@ const WebhookSender = (() => {
                 responseData = 'OK';
             }
 
-            logActivity(`✅ Данные отправлены в "${activeWebhook.name}" (${payload.text.length} символов)`, 'success');
-            
+            const textLength = payload.text.length;
+            logActivity(`✅ Данные отправлены в "${activeWebhook.name}" (${textLength} символов)`, 'success');
+
+            // Показываем информацию о диаризации если есть
+            if (payload.transcription_data && payload.transcription_data.task === 'diarize') {
+                const segmentsCount = payload.transcription_data.segments?.length || 0;
+                const speakersCount = new Set(payload.transcription_data.segments?.map(s => s.speaker) || []).size;
+                logActivity(`🎭 Диаризация: ${segmentsCount} сегментов, ${speakersCount} спикеров`, 'info');
+            }
+
             // Показываем краткую информацию об отправке
-            const preview = text.length > 100 ? text.substring(0, 100) + '...' : text;
+            const preview = payload.text.length > 100 ? payload.text.substring(0, 100) + '...' : payload.text;
             logActivity(`📄 Отправленный текст: "${preview}"`, 'info');
             
             return true;

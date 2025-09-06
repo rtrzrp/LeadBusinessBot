@@ -94,22 +94,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function startRecording() {
         try {
             log('🎬 Начинаем запись...');
-            
             const deviceId = deviceSelect.value;
-            log(`Используем устройство: ${deviceId || 'по умолчанию'}`);
+            let stream;
+
+            if (settings.recordSystemAudio) {
+                log('🎧 Запись системного звука включена.');
+                stream = await getMixedAudioStream(deviceId);
+            } else {
+                log('🎤 Запись только с микрофона.');
+                const constraints = { audio: { deviceId: deviceId ? { exact: deviceId } : undefined } };
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+            }
+
+            if (!stream) {
+                log('❌ Не удалось получить аудиопоток.', 'error');
+                return;
+            }
+
+            log('✅ Поток получен, запускаем MediaRecorder...');
             
-            const constraints = {
-                audio: {
-                    deviceId: deviceId ? { exact: deviceId } : undefined,
-                    channelCount: 1,
-                    sampleRate: 16000
-                }
-            };
-            
-            const stream = await navigator.mediaDevices.getUserMedia(constraints);
-            log('✅ Поток получен');
-            
-            // Приоритет для ГОЛОСА: WAV -> OGG -> MP3 (избегаем MP4)
+            // Приоритет для ГОЛОСА: WAV -> OGG
             let mimeType = '';
             
             if (MediaRecorder.isTypeSupported('audio/wav')) {
@@ -319,7 +323,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         userName: '',
         telegramId: '',
         diarization: false,
-        language: 'auto', // Новое поле для языка
+        language: 'auto',
+        recordSystemAudio: false,
         webhooks: [{ name: 'Default', url: '' }],
         activeWebhookIndex: 0
     };
@@ -350,6 +355,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('telegram-id').value = settings.telegramId;
         document.getElementById('diarization').checked = settings.diarization;
         document.getElementById('language-select').value = settings.language;
+        document.getElementById('system-audio-record').checked = settings.recordSystemAudio;
         renderPresets();
     }
 
@@ -361,6 +367,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         settings.telegramId = document.getElementById('telegram-id').value.trim();
         settings.diarization = document.getElementById('diarization').checked;
         settings.language = document.getElementById('language-select').value;
+        settings.recordSystemAudio = document.getElementById('system-audio-record').checked;
         
         const presetList = document.getElementById('preset-list');
         settings.webhooks = Array.from(presetList.children).map(item => ({
@@ -425,10 +432,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const result = await response.json();
-            const text = result.text || (result.segments ? result.segments.map(s => `${s.speaker}: ${s.text}`).join('\n') : '');
-            
-            log(`✅ Транскрипция получена: ${text.substring(0, 50)}...`, 'success');
-            return text;
+
+            // Возвращаем объект с полными данными для webhook
+            const transcriptionResult = {
+                formattedText: result.text || (result.segments ? result.segments.map(s => `${s.speaker}: ${s.text}`).join('\n') : ''),
+                rawResponse: result,
+                isDiarized: result.task === 'diarize'
+            };
+
+            log(`✅ Транскрипция получена: ${transcriptionResult.formattedText.substring(0, 50)}...`, 'success');
+            if (transcriptionResult.isDiarized) {
+                log(`🎭 Диаризация: ${result.segments?.length || 0} сегментов`, 'info');
+            }
+            return transcriptionResult;
 
         } catch (error) {
             log(`❌ Ошибка транскрипции: ${error.message}`, 'error');
@@ -482,29 +498,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
     // Отправка в webhook через НАШ ОБЪЕДИНЕННЫЙ СЕРВЕР
-    async function sendToWebhook(text) {
+    async function sendToWebhook(transcriptionResult) {
         const activePreset = settings.webhooks[settings.activeWebhookIndex];
         if (!activePreset || !activePreset.url) {
             log('Активный Webhook не настроен', 'warning');
             return;
         }
-        if (!text) {
-            log('Нет текста для отправки', 'warning');
+        if (!transcriptionResult) {
+            log('Нет данных для отправки', 'warning');
             return;
         }
 
         const url = "/api/webhook";
-        
+
         try {
             log(`🔄 Отправка webhook через наш сервер на пресет "${activePreset.name}"...`);
-            
+
             const serverPayload = {
                 webhookUrl: activePreset.url,
                 payload: {
                     name: settings.userName || 'Unknown',
                     date: new Date().toISOString(),
                     tg_id: settings.telegramId || '',
-                    text: text
+                    text: transcriptionResult.formattedText || '',
+                    transcription_data: transcriptionResult.rawResponse || null
                 }
             };
 
@@ -528,10 +545,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Обновляем функцию обработки аудио
     async function processAudio(audioBlob) {
-        const text = await transcribeAudio(audioBlob);
-        if (text) {
-            log(`📄 Текст: "${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"`, 'info');
-            await sendToWebhook(text);
+        const transcriptionResult = await transcribeAudio(audioBlob);
+        if (transcriptionResult) {
+            log(`📄 Текст: "${transcriptionResult.formattedText.substring(0, 100)}${transcriptionResult.formattedText.length > 100 ? '...' : ''}"`, 'info');
+            await sendToWebhook(transcriptionResult);
         }
     }
 
@@ -592,4 +609,72 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error('Ошибка диагностики:', error);
         }
     }, 1000);
+
+    // --- Логика смешивания аудио ---
+    async function getMixedAudioStream(microphoneId) {
+        let displayStream, micStream;
+        try {
+            // 1. Получаем системное аудио
+            log('🖥️ Запрос на демонстрацию экрана/вкладки для захвата звука...');
+            displayStream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: true
+            });
+
+            const displayAudioTrack = displayStream.getAudioTracks()[0];
+            if (!displayAudioTrack) {
+                log('⚠️ Системный звук не получен (пользователь не разрешил). Записываем только микрофон.', 'warning');
+                displayStream.getTracks().forEach(track => track.stop()); // Останавливаем ненужный видеопоток
+                return navigator.mediaDevices.getUserMedia({ audio: { deviceId: microphoneId ? { exact: microphoneId } : undefined } });
+            }
+             log('✅ Системный звук получен.');
+
+            // 2. Получаем аудио с микрофона
+            log('🎤 Запрос доступа к микрофону...');
+            micStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: microphoneId ? { exact: microphoneId } : undefined } });
+            const micAudioTrack = micStream.getAudioTracks()[0];
+             log('✅ Звук с микрофона получен.');
+
+            // 3. Смешиваем потоки
+            log('🎧 Смешивание аудиопотоков...');
+            const audioContext = new AudioContext();
+            
+            // Убедимся что AudioContext активен
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
+
+            const destination = audioContext.createMediaStreamDestination();
+
+            // Подключаем источники
+            const displaySource = audioContext.createMediaStreamSource(displayStream);
+            displaySource.connect(destination);
+
+            const micSource = audioContext.createMediaStreamSource(micStream);
+            micSource.connect(destination);
+            
+            // 4. Создаем ИТОГОВЫЙ ПОТОК только из смешанного аудио
+            const mixedAudioTrack = destination.stream.getAudioTracks()[0];
+            const finalStream = new MediaStream([mixedAudioTrack]);
+            
+            log('✅ Потоки успешно смешаны.');
+
+            // Следим за оригинальными потоками, чтобы остановить запись, если пользователь прекратит шаринг
+            displayStream.getTracks().forEach(track => {
+                track.onended = () => {
+                    log('Демонстрация экрана остановлена пользователем.', 'info');
+                    stopRecording();
+                };
+            });
+
+            return finalStream;
+
+        } catch (error) {
+            log(`❌ Ошибка при захвате потоков: ${error.message}`, 'error');
+            // Важно остановить все захваченные потоки в случае ошибки
+            displayStream?.getTracks().forEach(track => track.stop());
+            micStream?.getTracks().forEach(track => track.stop());
+            return null;
+        }
+    }
 });

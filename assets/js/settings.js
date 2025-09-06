@@ -6,6 +6,8 @@ const SettingsManager = (() => {
         userName: '',
         telegramId: '',
         diarization: false,
+        numSpeakers: '',
+        diarizationSetting: 'general',
         webhooks: [],
         activeWebhookIndex: 0
     };
@@ -16,6 +18,8 @@ const SettingsManager = (() => {
         settings.userName = DOM.userName.value.trim();
         settings.telegramId = DOM.telegramId.value.trim();
         settings.diarization = DOM.diarization.checked;
+        settings.numSpeakers = DOM.numSpeakers.value.trim();
+        settings.diarizationSetting = DOM.diarizationSetting.value;
         settings.activeWebhookIndex = DOM.activeWebhook.selectedIndex;
 
         settings.webhooks = [];
@@ -48,6 +52,8 @@ const SettingsManager = (() => {
         DOM.userName.value = settings.userName;
         DOM.telegramId.value = settings.telegramId;
         DOM.diarization.checked = settings.diarization;
+        DOM.numSpeakers.value = settings.numSpeakers;
+        DOM.diarizationSetting.value = settings.diarizationSetting;
         
         renderWebhooks();
     }
@@ -95,6 +101,8 @@ const SettingsManager = (() => {
             userName: $('#user-name'),
             telegramId: $('#telegram-id'),
             diarization: $('#diarization'),
+            numSpeakers: $('#num-speakers'),
+            diarizationSetting: $('#diarization-setting'),
             saveButton: $('#save-settings'),
             presetList: $('#preset-list'),
             addPresetButton: $('#add-preset'),
@@ -106,6 +114,7 @@ const SettingsManager = (() => {
         
         // Добавляем обработчики для кнопок тестирования
         document.getElementById('test-nexara').addEventListener('click', testNexaraAPI);
+        document.getElementById('test-diarization').addEventListener('click', testDiarizationAPI);
         document.getElementById('test-webhook').addEventListener('click', testWebhookConnection);
         
         load(); // Load settings after DOM is ready
@@ -141,17 +150,41 @@ const SettingsManager = (() => {
         }
     }
 
+    async function testDiarizationAPI() {
+        const button = document.getElementById('test-diarization');
+        button.disabled = true;
+        button.textContent = '🔄 Тестирование...';
+
+        try {
+            // Сначала сохраняем текущие настройки
+            save();
+
+            const validation = NexaraClient.validateSettings();
+            if (!validation.valid) {
+                throw new Error(validation.error);
+            }
+
+            await NexaraClient.testDiarization();
+
+        } catch (error) {
+            logActivity(`❌ Тест диаризации не удался: ${error.message}`, 'error');
+        } finally {
+            button.disabled = false;
+            button.textContent = '🎭 Тест Диаризации';
+        }
+    }
+
     async function testWebhookConnection() {
         const button = document.getElementById('test-webhook');
         button.disabled = true;
         button.textContent = '🔄 Тестирование...';
-        
+
         try {
             // Сначала сохраняем текущие настройки
             save();
-            
+
             await WebhookSender.testWebhook();
-            
+
         } catch (error) {
             logActivity(`❌ Тест webhook не удался: ${error.message}`, 'error');
         } finally {

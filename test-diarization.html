@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест Диаризации</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-result { margin: 20px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+    </style>
+</head>
+<body>
+    <h1>Тест Диаризации NexaraBot</h1>
+
+    <p>Этот файл поможет вам протестировать работу диаризации.</p>
+
+    <div class="test-result">
+        <h3>Ожидаемый результат диаризации:</h3>
+        <pre>
+speaker_0: Привет, как дела?
+speaker_1: Отлично, спасибо!
+speaker_0: Рад слышать.
+        </pre>
+    </div>
+
+    <div class="test-result">
+        <h3>Что проверить:</h3>
+        <ul>
+            <li>Включите диаризацию в настройках</li>
+            <li>Установите количество спикеров (опционально)</li>
+            <li>Выберите режим диаризации</li>
+            <li>Нажмите "🎭 Тест Диаризации"</li>
+            <li>Посмотрите в лог, что возвращает API</li>
+        </ul>
+    </div>
+
+    <div class="test-result">
+        <h3>Отладка:</h3>
+        <ul>
+            <li>Откройте Developer Tools (F12)</li>
+            <li>Посмотрите в Console вкладку</li>
+            <li>Ищите сообщения "Nexara API Response:"</li>
+            <li>Проверьте, есть ли поле "segments" в ответе</li>
+        </ul>
+    </div>
+
+    <p><a href="index.html">← Вернуться к основному приложению</a></p>
+</body>
+</html>

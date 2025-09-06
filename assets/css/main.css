@@ -92,10 +92,99 @@ header h1 {
     grid-template-columns: 1fr;
 }
 
+.features-group label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.features-group input, .features-group select {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: 1px solid;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.features-group .checkbox {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 1rem;
+    gap: 0.5rem;
+}
+
+.features-group .checkbox input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+.features-group .checkbox span {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.diarization-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    align-items: end;
+    margin-bottom: 1rem;
+}
+
+.diarization-row label {
+    margin-bottom: 0;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.diarization-row input,
+.diarization-row select {
+    width: 100%;
+}
+
+.diarization-row:first-child {
+    grid-template-columns: 1fr; /* Чекбокс занимает всю ширину */
+}
+
+.diarization-row:first-child .checkbox {
+    margin-bottom: 0;
+}
+
+.system-audio-group {
+    border-top: 1px solid var(--border-color);
+    padding-top: 1.5rem;
+}
+
+.hint {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    grid-column: 1 / -1; /* Span all columns */
+    text-align: left;
+    margin-top: -0.5rem;
+}
+
 @media (min-width: 600px) {
     .config-group, .user-group {
         grid-template-columns: 1fr 1fr;
         gap: 1.5rem;
+    }
+
+    .diarization-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 599px) {
+    .diarization-row {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+
+    .diarization-row label {
+        margin-bottom: 0.5rem;
     }
 }
 
@@ -155,7 +244,7 @@ input[type="text"], input[type="password"], input[type="url"], select {
     text-align: center;
 }
 
-.save-btn, .upload-btn, .control-btn, .clear-log, #add-preset, .test-btn {
+.save-btn, .upload-btn, .control-btn, .clear-log, #add-preset {
     padding: 0.75rem 1.5rem;
     border: none;
     border-radius: 8px;
@@ -165,21 +254,10 @@ input[type="text"], input[type="password"], input[type="url"], select {
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.save-btn:hover, .upload-btn:hover, .control-btn:hover, .test-btn:hover {
+.save-btn:hover, .upload-btn:hover, .control-btn:hover {
     transform: translateY(-2px);
 }
 
-.test-buttons {
-    display: flex;
-    gap: 1rem;
-    margin: 1rem 0;
-}
-
-.test-btn {
-    flex: 1;
-    font-size: 0.9rem;
-    padding: 0.6rem 1rem;
-}
 
 /* Main Recorder */
 .main-recorder {
